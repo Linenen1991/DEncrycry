@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>AES Encryption/Decryption Demo</title>
+    <title>OD</title>
     <style>
       div {
         padding: 3px;
@@ -15,106 +15,83 @@
       #key {
         width: 200px;
       }
-
-      #encText,
-      #decText {
-        color: darkblue;
-        height: 1em;
-      }
     </style>
   </head>
   <body>
     <div> Key = <input type="text" id="key" value="">Url = <input type="text" id="url" value="">
-    <button onclick="Decryter()">Decrypt</button></div>
-      <div>
-         <textarea id="decText" readonly style="width: 700px; height: 600px;"></textarea> 
-      </div>
-      <script>
-        if (!window.crypto?.subtle) {
-          alert("Your browser is unsupported!");
-        }
-        async function createCryptoKey(key, keyUsage) {
-          const hashBuffer = await window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(key));
-          // split the sha256 hash byte array into key and iv
-          let keyPart = new Uint8Array(hashBuffer.slice(0, 16));
-          let ivPart = new Uint8Array(hashBuffer.slice(16));
-          // create a CryptoKey object from the key byte array
-          const cryptoKey = await window.crypto.subtle.importKey("raw", // format
-            keyPart, // key data (as a Uint8Array)
-            {
-              name: "AES-CBC"
-            }, // algorithm
-            false, // not extractable
-            [keyUsage]);
-          // return CryptoKey and IV
-          return {
+      <button onclick="Decryter()">Decrypt</button>
+    </div>
+    <div>
+      <textarea id="DT" readonly style="width: 700px; height: 600px;"></textarea>
+    </div>
+    <script>
+      if (!window.crypto?.subtle) {
+        alert("Your browser is unsupported!");
+      }
+      async function createCryptoKey(key, keyUsage) {
+        const hashBuffer = await window.crypto.subtle.digest("SHA-256", new TextEncoder().encode(key));
+        // split the sha256 hash byte array into key and iv
+        let keyPart = new Uint8Array(hashBuffer.slice(0, 16));
+        let ivPart = new Uint8Array(hashBuffer.slice(16));
+        // create a CryptoKey object from the key byte array
+        const cryptoKey = await window.crypto.subtle.importKey("raw", // format
+          keyPart, // key data (as a Uint8Array)
+          {
+            name: "AES-CBC"
+          }, // algorithm
+          false, // not extractable
+          [keyUsage]);
+        // return CryptoKey and IV
+        return {
+          cryptoKey,
+          ivPart
+        };
+      }
+      async function decryptData(data, {
+        cryptoKey,
+        ivPart
+      }) {
+        // Convert the base64-encoded data to a Uint8Array
+        const dataBytes = new Uint8Array(atob(data).split('').map(c => c.charCodeAt(0)));
+        // Decrypt the data using the CryptoKey object
+        const decryptedBytes = await window.crypto.subtle.decrypt({
+          name: 'AES-CBC',
+          iv: ivPart
+        }, cryptoKey, dataBytes);
+        return new TextDecoder().decode(decryptedBytes);
+      }
+      async function asyncDecryForEach(key, array) {
+        const {
+          cryptoKey,
+          ivPart
+        } = await createCryptoKey(key, 'decrypt');
+        for (let index = 0; index < array.length; index++) {
+          if (!array[index]) {
+            continue;
+          }
+          const re = await decryptData(array[index], {
             cryptoKey,
             ivPart
-          };
-        }
-        async function encryptData(enc, key) {
-          const {
-            cryptoKey,
-            ivPart
-          } = await createCryptoKey(key, "encrypt");
-          const data = new TextEncoder().encode(enc);
-          const encryptedBytes = await window.crypto.subtle.encrypt({
-            name: "AES-CBC",
-            iv: ivPart
-          }, cryptoKey, data);
-          const encrypted = btoa(String.fromCharCode(...new Uint8Array(encryptedBytes)));
-          return encrypted;
-        }
-
-        async function decryptData(data, key) {
-          const {
-            cryptoKey,
-            ivPart
-          } = await createCryptoKey(key, "decrypt");
-          // Convert the base64-encoded data to a Uint8Array
-          const dataBytes = new Uint8Array(atob(data).split("").map(c => c.charCodeAt(0)));
-          // Decrypt the data using the CryptoKey object
-          const decryptedBytes = await window.crypto.subtle.decrypt({
-            name: "AES-CBC",
-            iv: ivPart
-          }, cryptoKey, dataBytes);
-          return new TextDecoder().decode(decryptedBytes);
-        }
-
-        function encrypt() {
-          const plain = document.querySelector("#plain").value;
-          const key = document.querySelector("#key").value;
-          encryptData(plain, key).then((result) => {
-            document.querySelector("#encrypted").value = result;
-            document.querySelector("#encText").textContent = result;
-          }, (err) => {
-            console.log(err);
           });
+          document.querySelector("#DT").textContent += re + "\n";
         }
-
-        function decrypt(r) {
-          const encrypted = r;
-          const key = document.querySelector("#key").value;
-          decryptData(encrypted, key).then((result) => {
-            document.querySelector("#decText").textContent = result;
-          }).catch((err) => {
-            alert(err.message);
-          });
-        }
-
-        async function getData() {
-	  var fullPath = "https://raw.githubusercontent.com/Linenen1991/DEncrycry/main/" + document.querySelector("#url").value;
-          return fetch(fullPath).then(r => {
-            console.log(r);
-            if (!r.ok) reject(Response(r.status));
-            return r.text()
-            }).catch((e) => console.error('Error:', e));
-        }
-
-        async function Decryter() {
-          const data = await getData();
-          decrypt(data);
-        }
-      </script>
+        document.title = "DONE";
+      }
+      async function getData() {
+        var fullPath = "https://raw.githubusercontent.com/Linenen1991/DEncrycry/main/" + document.querySelector("#url").value;
+        return fetch(fullPath).then(r => {
+          console.log(r);
+          if (!r.ok) reject(Response(r.status));
+          return r.text()
+        }).catch((e) => console.error('Error:', e));
+      }
+      async function Decryter() {
+        const data = await getData();
+        document.title = "Start";
+        document.querySelector("#DT").textContent = "";
+        const key = document.querySelector("#key").value;
+        asyncDecryForEach(key, data.split("\n"));
+      }
+    </script>
   </body>
 </html>
